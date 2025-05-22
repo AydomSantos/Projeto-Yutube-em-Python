@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Downloader</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>YouTube Video Downloader</h1>
+        
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        
+        <form method="POST">
+            <input type="text" name="url" placeholder="Cole o link do YouTube aqui..." required>
+            <button type="submit">Baixar Vídeo</button>
+        </form>
+        
+        <div class="instructions">
+            <h3>Como usar:</h3>
+            <ol>
+                <li>Copie o URL do vídeo do YouTube</li>
+                <li>Cole no campo acima</li>
+                <li>Clique em "Baixar Vídeo"</li>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>
