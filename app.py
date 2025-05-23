@@ -134,14 +134,22 @@ def download_video(url, download_id):
 def download_with_requests(url, download_id, video_id):
     # Set up yt-dlp options apenas para extrair informações
     ydl_opts = {
-        'format': 'best[ext=mp4]',
-        'skip_download': True,
-        'quiet': True,
-        'no_warnings': True,
-        'nocheckcertificate': True,
+       'format': 'best[ext=mp4]',
+        'outtmpl': os.path.join(DOWNLOAD_FOLDER, '%(title)s_%(id)s.%(ext)s'),
+        'restrictfilenames': True,
+        'noplaylist': True,
+        'quiet': False,
+        'no_warnings': False,
+        'progress_hooks': [progress_hook],
+        '_download_id': download_id,
+        'nocheckcertificate': not ssl_verify,
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        }
+        },
+        'socket_timeout': 30,  
+        'retries': 10,         
+        'fragment_retries': 10, 
+        'external_downloader_args': ['-retry', '10'] 
     }
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -168,9 +176,20 @@ def download_with_requests(url, download_id, video_id):
         filename = f"{sanitized_title}_{video_id}.{ext}"
         filepath = os.path.join(DOWNLOAD_FOLDER, filename)
         
-        # Configurar a sessão com opções SSL personalizadas
+        # Configurar a sessão com opções SSL personalizadas e retry
         session = requests.Session()
         session.verify = False  # Desativa verificação SSL
+        
+        # Configurar retry com backoff exponencial
+        retry_strategy = Retry(
+            total=5,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET"]
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
         
         # Suprimir avisos de SSL inseguro
         import warnings
@@ -270,9 +289,95 @@ def download_with_ytdlp(url, download_id, video_id, ssl_verify=True):
 def index():
     return render_template('index.html')
 
+# Adicionar nova rota para verificar o vídeo e obter resoluções disponíveis
+@app.route('/check-video', methods=['POST'])
+def check_video():
+    url = request.form.get('url', '').strip()
+    
+    if not url:
+        return jsonify({'error': 'URL não fornecida'}), 400
+    
+    try:
+        # Validate YouTube URL
+        if "youtube.com" not in url and "youtu.be" not in url:
+            return jsonify({'error': 'URL do YouTube inválida'}), 400
+        
+        # Configurar yt-dlp para extrair informações do vídeo
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'nocheckcertificate': True,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            }
+        }
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            
+            # Informações básicas do vídeo
+            video_info = {
+                'title': info.get('title', 'Vídeo sem título'),
+                'thumbnail': info.get('thumbnail', ''),
+                'duration': info.get('duration', 0),
+                'formats': []
+            }
+            
+            # Filtrar e organizar formatos disponíveis
+            formats = []
+            seen_resolutions = set()
+            
+            # Primeiro, coletar todos os formatos com vídeo
+            for f in info.get('formats', []):
+                # Pular formatos sem vídeo ou sem informações de resolução
+                if not f.get('height') or f.get('vcodec') == 'none':
+                    continue
+                
+                # Criar identificador de resolução para evitar duplicatas
+                resolution_id = f"{f.get('height')}p_{f.get('ext')}"
+                
+                # Pular se já tivermos esta resolução
+                if resolution_id in seen_resolutions:
+                    continue
+                
+                seen_resolutions.add(resolution_id)
+                
+                # Calcular tamanho aproximado
+                filesize = f.get('filesize')
+                if not filesize:
+                    filesize = f.get('filesize_approx', 0)
+                
+                if filesize:
+                    if filesize > 1024 * 1024 * 1024:  # GB
+                        filesize_str = f"{filesize / (1024 * 1024 * 1024):.1f} GB"
+                    else:  # MB
+                        filesize_str = f"{filesize / (1024 * 1024):.1f} MB"
+                else:
+                    filesize_str = "Desconhecido"
+                
+                formats.append({
+                    'format_id': f.get('format_id'),
+                    'resolution': f"{f.get('height')}p",
+                    'ext': f.get('ext'),
+                    'filesize_approx': filesize_str
+                })
+            
+            # Ordenar por resolução (maior para menor)
+            formats.sort(key=lambda x: int(x['resolution'].replace('p', '')), reverse=True)
+            
+            video_info['formats'] = formats
+            
+            return jsonify(video_info)
+    
+    except Exception as e:
+        app.logger.error(f"Error checking video: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# Modificar a rota de download para aceitar o format_id
 @app.route('/download', methods=['POST'])
 def start_download():
     url = request.form.get('url', '').strip()
+    format_id = request.form.get('format_id', '').strip()
     
     if not url:
         return jsonify({'error': 'URL não fornecida'}), 400
@@ -294,7 +399,7 @@ def start_download():
         }
         
         # Iniciar o download em uma thread separada
-        thread = threading.Thread(target=download_video, args=(url, download_id))
+        thread = threading.Thread(target=download_video, args=(url, download_id, format_id))
         thread.daemon = True
         thread.start()
         
@@ -303,6 +408,80 @@ def start_download():
     except Exception as e:
         app.logger.error(f"Error starting download: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+# Modificar a função de download para usar o format_id
+def download_video(url, download_id, format_id=None):
+    try:
+        # Extract video ID for logging purposes
+        video_id = None
+        if "youtube.com/watch" in url:
+            query_params = url.split("?")[1] if "?" in url else ""
+            params = query_params.split("&")
+            for param in params:
+                if param.startswith("v="):
+                    video_id = param[2:]
+                    break
+        elif "youtu.be/" in url:
+            video_id = url.split("youtu.be/")[1].split("?")[0].split("&")[0]
+        
+        app.logger.info(f"Attempting to download video with ID: {video_id}, format: {format_id}")
+        
+        # Configurar formato baseado no format_id
+        format_spec = 'best[ext=mp4]'  # Padrão
+        if format_id:
+            format_spec = format_id
+        
+        # Set up yt-dlp options
+        ydl_opts = {
+            'format': format_spec,
+            'outtmpl': os.path.join(DOWNLOAD_FOLDER, '%(title)s_%(id)s.%(ext)s'),
+            'restrictfilenames': True,
+            'noplaylist': True,
+            'quiet': False,
+            'no_warnings': False,
+            'progress_hooks': [progress_hook],
+            '_download_id': download_id,
+            'nocheckcertificate': True,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            }
+        }
+        
+        # Tentar download com yt-dlp
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            title = info.get('title', 'video')
+            video_id = info.get('id', 'unknown')
+            ext = info.get('ext', 'mp4')
+            
+            # Get the downloaded file path
+            sanitized_title = sanitize_filename(title)
+            downloaded_filename = f"{sanitized_title}_{video_id}.{ext}"
+            filepath = os.path.join(DOWNLOAD_FOLDER, downloaded_filename)
+            
+            # If the file doesn't exist with the expected name, try to find it
+            if not os.path.exists(filepath):
+                for file in os.listdir(DOWNLOAD_FOLDER):
+                    if video_id in file and file.endswith(f".{ext}"):
+                        filepath = os.path.join(DOWNLOAD_FOLDER, file)
+                        break
+            
+            app.logger.info(f"Downloaded to: {filepath}")
+            
+            # Atualizar o progresso para concluído
+            download_progress[download_id].update({
+                'status': 'completed',
+                'percent': 100,
+                'filepath': filepath,
+                'filename': sanitized_title + '.' + ext
+            })
+    
+    except Exception as e:
+        app.logger.error(f"Download error: {str(e)}")
+        download_progress[download_id].update({
+            'status': 'error',
+            'error': str(e)
+        })
 
 @app.route('/progress/<download_id>', methods=['GET'])
 def get_progress(download_id):

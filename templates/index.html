@@ -16,8 +16,20 @@
         {% endif %}
         
         <form method="POST" id="download-form">
-            <input type="text" name="url" placeholder="Cole o link do YouTube aqui..." required>
-            <button type="submit" id="download-button">Baixar Vídeo</button>
+            <input type="text" name="url" id="video-url" placeholder="Cole o link do YouTube aqui..." required>
+            <button type="button" id="check-video">Verificar Vídeo</button>
+            
+            <div id="resolution-container" style="display: none; margin-top: 15px;">
+                <div class="video-info">
+                    <img id="thumbnail" src="" alt="Thumbnail" style="max-width: 200px; margin-bottom: 10px;">
+                    <h3 id="video-title">Título do Vídeo</h3>
+                </div>
+                <label for="resolution">Escolha a resolução:</label>
+                <select name="resolution" id="resolution-select">
+                    <!-- As opções serão preenchidas dinamicamente -->
+                </select>
+                <button type="submit" id="download-button">Baixar Vídeo</button>
+            </div>
         </form>
         
         <div id="progress-container" style="display: none; margin-top: 20px;">
@@ -35,7 +47,8 @@
             <h3>Como usar:</h3>
             <ol>
                 <li>Copie o URL do vídeo do YouTube</li>
-                <li>Cole no campo acima</li>
+                <li>Cole no campo acima e clique em "Verificar Vídeo"</li>
+                <li>Escolha a resolução desejada</li>
                 <li>Clique em "Baixar Vídeo"</li>
             </ol>
         </div>
@@ -43,11 +56,58 @@
 
     <script>
         $(document).ready(function() {
+            // Botão para verificar o vídeo e obter resoluções disponíveis
+            $('#check-video').on('click', function() {
+                const url = $('#video-url').val();
+                if (!url) return;
+                
+                // Desabilitar botão durante a verificação
+                $(this).prop('disabled', true).text('Verificando...');
+                
+                // Obter informações do vídeo e resoluções disponíveis
+                $.ajax({
+                    url: '/check-video',
+                    type: 'POST',
+                    data: {url: url},
+                    success: function(response) {
+                        // Habilitar botão novamente
+                        $('#check-video').prop('disabled', false).text('Verificar Vídeo');
+                        
+                        if (response.error) {
+                            alert('Erro: ' + response.error);
+                            return;
+                        }
+                        
+                        // Preencher informações do vídeo
+                        $('#video-title').text(response.title);
+                        $('#thumbnail').attr('src', response.thumbnail);
+                        
+                        // Preencher opções de resolução
+                        const select = $('#resolution-select');
+                        select.empty();
+                        
+                        response.formats.forEach(function(format) {
+                            select.append(`<option value="${format.format_id}">${format.resolution} - ${format.ext} (${format.filesize_approx})</option>`);
+                        });
+                        
+                        // Mostrar container de resolução
+                        $('#resolution-container').show();
+                    },
+                    error: function(xhr) {
+                        $('#check-video').prop('disabled', false).text('Verificar Vídeo');
+                        alert('Erro ao verificar vídeo: ' + xhr.responseText);
+                    }
+                });
+            });
+            
+            // Formulário de download
             $('#download-form').on('submit', function(e) {
                 e.preventDefault();
                 
-                const url = $('input[name="url"]').val();
-                if (!url) return;
+                const url = $('#video-url').val();
+                const formatId = $('#resolution-select').val();
+                
+                if (!url || !formatId) return;
                 
                 // Mostrar barra de progresso
                 $('#progress-container').show();
@@ -57,7 +117,10 @@
                 $.ajax({
                     url: '/download',
                     type: 'POST',
-                    data: {url: url},
+                    data: {
+                        url: url,
+                        format_id: formatId
+                    },
                     success: function(response) {
                         if (response.download_id) {
                             checkProgress(response.download_id);

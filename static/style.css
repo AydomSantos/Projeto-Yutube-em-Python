@@ -92,3 +92,52 @@ button:hover {
 }
 
 /* Outros estilos existentes */
+
+/* Adicionar estilos para o seletor de resolução */
+#resolution-container {
+    background-color: #f9f9f9;
+    border-radius: 5px;
+    padding: 15px;
+    margin-top: 15px;
+    border: 1px solid #ddd;
+}
+
+.video-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+#video-title {
+    margin-top: 10px;
+    font-size: 16px;
+    text-align: center;
+}
+
+select {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    font-size: 14px;
+}
+
+/* Ajustar layout para telas menores */
+@media (min-width: 768px) {
+    .video-info {
+        flex-direction: row;
+        align-items: flex-start;
+    }
+    
+    #thumbnail {
+        margin-right: 15px;
+        margin-bottom: 0;
+    }
+    
+    #video-title {
+        text-align: left;
+        margin-top: 0;
+    }
+}
