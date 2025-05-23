@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YouTube Downloader</title>
     <link rel="stylesheet" href="/static/style.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -14,10 +15,21 @@
         <div class="error">{{ error }}</div>
         {% endif %}
         
-        <form method="POST">
+        <form method="POST" id="download-form">
             <input type="text" name="url" placeholder="Cole o link do YouTube aqui..." required>
-            <button type="submit">Baixar Vídeo</button>
+            <button type="submit" id="download-button">Baixar Vídeo</button>
         </form>
+        
+        <div id="progress-container" style="display: none; margin-top: 20px;">
+            <div class="progress-label">Baixando: <span id="progress-title">...</span></div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="download-progress"></div>
+            </div>
+            <div class="progress-info">
+                <span id="progress-percentage">0%</span>
+                <span id="progress-speed">0 MB/s</span>
+            </div>
+        </div>
         
         <div class="instructions">
             <h3>Como usar:</h3>
@@ -28,5 +40,72 @@
             </ol>
         </div>
     </div>
+
+    <script>
+        $(document).ready(function() {
+            $('#download-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                const url = $('input[name="url"]').val();
+                if (!url) return;
+                
+                // Mostrar barra de progresso
+                $('#progress-container').show();
+                $('#download-button').prop('disabled', true).text('Baixando...');
+                
+                // Iniciar o download e monitorar o progresso
+                $.ajax({
+                    url: '/download',
+                    type: 'POST',
+                    data: {url: url},
+                    success: function(response) {
+                        if (response.download_id) {
+                            checkProgress(response.download_id);
+                        } else {
+                            window.location.href = response.download_url;
+                        }
+                    },
+                    error: function(xhr) {
+                        $('#progress-container').hide();
+                        $('#download-button').prop('disabled', false).text('Baixar Vídeo');
+                        alert('Erro ao iniciar o download: ' + xhr.responseText);
+                    }
+                });
+            });
+            
+            function checkProgress(downloadId) {
+                $.ajax({
+                    url: '/progress/' + downloadId,
+                    type: 'GET',
+                    success: function(data) {
+                        // Atualizar a barra de progresso
+                        $('#progress-title').text(data.title || 'Vídeo');
+                        $('#download-progress').css('width', data.percent + '%');
+                        $('#progress-percentage').text(data.percent + '%');
+                        $('#progress-speed').text(data.speed);
+                        
+                        if (data.status === 'completed') {
+                            // Download concluído
+                            window.location.href = data.download_url;
+                        } else if (data.status === 'error') {
+                            // Erro no download
+                            alert('Erro no download: ' + data.error);
+                            $('#progress-container').hide();
+                            $('#download-button').prop('disabled', false).text('Baixar Vídeo');
+                        } else {
+                            // Continuar verificando o progresso
+                            setTimeout(function() {
+                                checkProgress(downloadId);
+                            }, 1000);
+                        }
+                    },
+                    error: function() {
+                        $('#progress-container').hide();
+                        $('#download-button').prop('disabled', false).text('Baixar Vídeo');
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>
