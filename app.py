@@ -1,3 +1,6 @@
+
+# importando as bibliotecas necessarias 
+
 from flask import Flask, render_template, request, send_file, jsonify, url_for
 import os
 import ssl
@@ -9,11 +12,20 @@ import threading
 from dotenv import load_dotenv
 import yt_dlp
 
+# ======================================================================
+
 # Carregar variáveis de ambiente do arquivo .env
+
 load_dotenv() 
 
+# ======================================================================
+
+
 # Adicionar tratamento para erros SSL
+
 ssl._create_default_https_context = ssl._create_unverified_context
+
+# =========================================================================
 
 app = Flask(__name__)
 

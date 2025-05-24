@@ -4,65 +4,232 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YouTube Downloader</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        .video-card {
+            transition: all 0.3s ease;
+        }
+        .video-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+    </style>
 </head>
-<body>
-    <div class="container">
-        <h1>YouTube Video Downloader</h1>
+<body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen text-white">
+    <div class="container mx-auto px-4 py-12 max-w-4xl">
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-blue-500">
+                YouTube Video Downloader
+            </h1>
+            <p class="text-gray-400 max-w-lg mx-auto">
+                Baixe seus vídeos favoritos do YouTube em alta qualidade de forma rápida e fácil
+            </p>
+        </div>
         
         {% if error %}
-        <div class="error">{{ error }}</div>
+        <div class="bg-red-500 text-white px-4 py-3 rounded-lg mb-6 animate__animated animate__shakeX">
+            {{ error }}
+        </div>
         {% endif %}
         
-        <form method="POST" id="download-form">
-            <input type="text" name="url" id="video-url" placeholder="Cole o link do YouTube aqui..." required>
-            <button type="button" id="check-video">Verificar Vídeo</button>
-            
-            <div id="resolution-container" style="display: none; margin-top: 15px;">
-                <div class="video-info">
-                    <img id="thumbnail" src="" alt="Thumbnail" style="max-width: 200px; margin-bottom: 10px;">
-                    <h3 id="video-title">Título do Vídeo</h3>
+        <div class="bg-gray-800 rounded-xl shadow-2xl p-6 mb-8">
+            <form method="POST" id="download-form">
+                <div class="flex flex-col md:flex-row gap-4 mb-4">
+                    <input 
+                        type="text" 
+                        name="url" 
+                        id="video-url" 
+                        placeholder="Cole o link do YouTube aqui..." 
+                        required
+                        class="flex-grow px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-500 outline-none transition"
+                    >
+                    <button 
+                        type="button" 
+                        id="check-video"
+                        class="px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-medium transition-colors duration-300 flex items-center justify-center"
+                    >
+                        <span id="check-text">Verificar Vídeo</span>
+                        <svg id="check-spinner" class="hidden animate-spin ml-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
                 </div>
-                <label for="resolution">Escolha a resolução:</label>
-                <select name="resolution" id="resolution-select">
-                    <!-- As opções serão preenchidas dinamicamente -->
-                </select>
-                <button type="submit" id="download-button">Baixar Vídeo</button>
-            </div>
-        </form>
+                
+                <div id="resolution-container" class="hidden animate__animated animate__fadeIn">
+                    <div class="video-card bg-gray-700 rounded-lg p-4 mb-6 flex flex-col md:flex-row gap-6">
+                        <img 
+                            id="thumbnail" 
+                            src="" 
+                            alt="Thumbnail" 
+                            class="w-full md:w-48 h-auto rounded-lg object-cover shadow-md"
+                        >
+                        <div class="flex-grow">
+                            <h3 id="video-title" class="text-xl font-bold mb-2 line-clamp-2"></h3>
+                            <div class="flex flex-wrap gap-2 mt-4">
+                                <div class="bg-gray-600 px-3 py-1 rounded-full text-sm flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    <span id="video-views"></span>
+                                </div>
+                                <div class="bg-gray-600 px-3 py-1 rounded-full text-sm flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span id="video-duration"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label for="resolution" class="block text-sm font-medium mb-2">Escolha a resolução:</label>
+                        <select 
+                            name="resolution" 
+                            id="resolution-select"
+                            class="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-500 outline-none transition"
+                        >
+                            <!-- As opções serão preenchidas dinamicamente -->
+                        </select>
+                    </div>
+                    
+                    <button 
+                        type="submit" 
+                        id="download-button"
+                        class="w-full px-6 py-3 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 rounded-lg font-medium transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-red-500/20"
+                    >
+                        <span id="download-text">Baixar Vídeo</span>
+                        <svg id="download-spinner" class="hidden animate-spin ml-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </div>
         
-        <div id="progress-container" style="display: none; margin-top: 20px;">
-            <div class="progress-label">Baixando: <span id="progress-title">...</span></div>
-            <div class="progress-bar-container">
-                <div class="progress-bar" id="download-progress"></div>
+        <div id="progress-container" class="hidden animate__animated animate__fadeIn bg-gray-800 rounded-xl shadow-xl p-6 mb-8">
+            <div class="mb-4">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-sm font-medium">Baixando: <span id="progress-title" class="font-semibold">...</span></span>
+                    <span id="progress-percentage" class="text-sm font-medium">0%</span>
+                </div>
+                <div class="w-full bg-gray-700 rounded-full h-2.5">
+                    <div id="download-progress" class="bg-gradient-to-r from-red-500 to-orange-500 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
             </div>
-            <div class="progress-info">
-                <span id="progress-percentage">0%</span>
-                <span id="progress-speed">0 MB/s</span>
+            <div class="flex justify-between text-sm text-gray-400">
+                <div class="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <span id="progress-speed">0 MB/s</span>
+                </div>
+                <div class="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span id="progress-time">--</span>
+                </div>
             </div>
         </div>
         
-        <div class="instructions">
-            <h3>Como usar:</h3>
-            <ol>
-                <li>Copie o URL do vídeo do YouTube</li>
-                <li>Cole no campo acima e clique em "Verificar Vídeo"</li>
-                <li>Escolha a resolução desejada</li>
-                <li>Clique em "Baixar Vídeo"</li>
+        <div class="bg-gray-800 rounded-xl shadow-xl p-6">
+            <h3 class="text-xl font-bold mb-4 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                Como usar:
+            </h3>
+            <ol class="space-y-3">
+                <li class="flex items-start">
+                    <span class="flex items-center justify-center bg-red-500 text-white rounded-full w-6 h-6 mr-3 flex-shrink-0">1</span>
+                    <span>Copie o URL do vídeo do YouTube (exemplo: https://www.youtube.com/watch?v=...)</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="flex items-center justify-center bg-red-500 text-white rounded-full w-6 h-6 mr-3 flex-shrink-0">2</span>
+                    <span>Cole no campo acima e clique em "Verificar Vídeo"</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="flex items-center justify-center bg-red-500 text-white rounded-full w-6 h-6 mr-3 flex-shrink-0">3</span>
+                    <span>Escolha a resolução desejada na lista</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="flex items-center justify-center bg-red-500 text-white rounded-full w-6 h-6 mr-3 flex-shrink-0">4</span>
+                    <span>Clique em "Baixar Vídeo" e aguarde o download</span>
+                </li>
             </ol>
+            
+            <div class="mt-6 pt-6 border-t border-gray-700">
+                <p class="text-gray-400 text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Este serviço é apenas para vídeos que você tem permissão para baixar. Respeite os direitos autorais.
+                </p>
+            </div>
         </div>
     </div>
 
     <script>
         $(document).ready(function() {
+            // Limpar interface quando um novo URL for inserido
+            $('#video-url').on('input', function() {
+                // Esconder elementos de progresso e resultados anteriores
+                $('#progress-container').hide();
+                $('#resolution-container').hide();
+                $('#download-button').prop('disabled', false);
+                $('#download-text').text('Baixar Vídeo');
+                $('#download-spinner').addClass('hidden');
+                $('#download-progress').css('width', '0%');
+                $('#progress-percentage').text('0%');
+                $('#progress-speed').text('0 MB/s');
+                $('#progress-time').text('--');
+            });
+            
             // Botão para verificar o vídeo e obter resoluções disponíveis
             $('#check-video').on('click', function() {
                 const url = $('#video-url').val();
-                if (!url) return;
+                if (!url) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Oops...',
+                        text: 'Por favor, cole um URL do YouTube',
+                        confirmButtonColor: '#EF4444'
+                    });
+                    return;
+                }
                 
-                // Desabilitar botão durante a verificação
-                $(this).prop('disabled', true).text('Verificando...');
+                // Validar URL do YouTube
+                if (!url.match(/^(https?\:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$/)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'URL inválido',
+                        text: 'Por favor, insira um link válido do YouTube',
+                        confirmButtonColor: '#EF4444'
+                    });
+                    return;
+                }
+                
+                // Limpar qualquer progresso anterior
+                $('#progress-container').hide();
+                $('#download-progress').css('width', '0%');
+                $('#progress-percentage').text('0%');
+                $('#progress-speed').text('0 MB/s');
+                $('#progress-time').text('--');
+                
+                // Mostrar loading
+                $('#check-text').text('Verificando...');
+                $('#check-spinner').removeClass('hidden');
+                $(this).prop('disabled', true);
                 
                 // Obter informações do vídeo e resoluções disponíveis
                 $.ajax({
@@ -70,32 +237,66 @@
                     type: 'POST',
                     data: {url: url},
                     success: function(response) {
-                        // Habilitar botão novamente
-                        $('#check-video').prop('disabled', false).text('Verificar Vídeo');
+                        // Restaurar botão
+                        $('#check-text').text('Verificar Vídeo');
+                        $('#check-spinner').addClass('hidden');
+                        $('#check-video').prop('disabled', false);
                         
                         if (response.error) {
-                            alert('Erro: ' + response.error);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro',
+                                text: response.error,
+                                confirmButtonColor: '#EF4444'
+                            });
                             return;
                         }
                         
                         // Preencher informações do vídeo
                         $('#video-title').text(response.title);
                         $('#thumbnail').attr('src', response.thumbnail);
+                        $('#video-views').text(response.views || 'N/A');
+                        $('#video-duration').text(response.duration || 'N/A');
                         
                         // Preencher opções de resolução
                         const select = $('#resolution-select');
                         select.empty();
                         
-                        response.formats.forEach(function(format) {
-                            select.append(`<option value="${format.format_id}">${format.resolution} - ${format.ext} (${format.filesize_approx})</option>`);
-                        });
+                        if (response.formats && response.formats.length > 0) {
+                            response.formats.forEach(function(format) {
+                                const fileSize = format.filesize_approx ? 
+                                    (format.filesize_approx / (1024 * 1024)).toFixed(2) + ' MB' : 
+                                    'Tamanho desconhecido';
+                                    
+                                select.append(`
+                                    <option value="${format.format_id}">
+                                        ${format.resolution || 'Áudio'} - ${format.ext.toUpperCase()} (${fileSize})
+                                    </option>
+                                `);
+                            });
+                        } else {
+                            select.append('<option value="">Nenhuma opção disponível</option>');
+                        }
                         
-                        // Mostrar container de resolução
-                        $('#resolution-container').show();
+                        // Mostrar container de resolução com animação
+                        $('#resolution-container').removeClass('hidden').hide().fadeIn(300);
                     },
                     error: function(xhr) {
-                        $('#check-video').prop('disabled', false).text('Verificar Vídeo');
-                        alert('Erro ao verificar vídeo: ' + xhr.responseText);
+                        $('#check-text').text('Verificar Vídeo');
+                        $('#check-spinner').addClass('hidden');
+                        $('#check-video').prop('disabled', false);
+                        
+                        let errorMsg = 'Erro ao verificar vídeo';
+                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                            errorMsg = xhr.responseJSON.error;
+                        }
+                        
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Erro',
+                            text: errorMsg,
+                            confirmButtonColor: '#EF4444'
+                        });
                     }
                 });
             });
@@ -107,11 +308,23 @@
                 const url = $('#video-url').val();
                 const formatId = $('#resolution-select').val();
                 
-                if (!url || !formatId) return;
+                if (!url || !formatId) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Oops...',
+                        text: 'Por favor, verifique o vídeo e selecione uma resolução',
+                        confirmButtonColor: '#EF4444'
+                    });
+                    return;
+                }
                 
-                // Mostrar barra de progresso
-                $('#progress-container').show();
-                $('#download-button').prop('disabled', true).text('Baixando...');
+                // Mostrar loading no botão
+                $('#download-text').text('Preparando download...');
+                $('#download-spinner').removeClass('hidden');
+                $('#download-button').prop('disabled', true);
+                
+                // Mostrar barra de progresso com animação
+                $('#progress-container').removeClass('hidden').hide().fadeIn(300);
                 
                 // Iniciar o download e monitorar o progresso
                 $.ajax({
@@ -122,16 +335,37 @@
                         format_id: formatId
                     },
                     success: function(response) {
+                        $('#download-text').text('Baixando...');
+                        
                         if (response.download_id) {
                             checkProgress(response.download_id);
-                        } else {
+                        } else if (response.download_url) {
                             window.location.href = response.download_url;
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro',
+                                text: 'Resposta inesperada do servidor',
+                                confirmButtonColor: '#EF4444'
+                            });
+                            resetDownloadButton();
                         }
                     },
                     error: function(xhr) {
-                        $('#progress-container').hide();
-                        $('#download-button').prop('disabled', false).text('Baixar Vídeo');
-                        alert('Erro ao iniciar o download: ' + xhr.responseText);
+                        let errorMsg = 'Erro ao iniciar o download';
+                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                            errorMsg = xhr.responseJSON.error;
+                        }
+                        
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Erro',
+                            text: errorMsg,
+                            confirmButtonColor: '#EF4444'
+                        });
+                        
+                        $('#progress-container').fadeOut(300);
+                        resetDownloadButton();
                     }
                 });
             });
@@ -142,19 +376,50 @@
                     type: 'GET',
                     success: function(data) {
                         // Atualizar a barra de progresso
-                        $('#progress-title').text(data.title || 'Vídeo');
-                        $('#download-progress').css('width', data.percent + '%');
-                        $('#progress-percentage').text(data.percent + '%');
-                        $('#progress-speed').text(data.speed);
+                        if (data.title) {
+                            $('#progress-title').text(data.title);
+                        }
+                        
+                        if (data.percent) {
+                            const percent = Math.round(data.percent);
+                            $('#download-progress').css('width', percent + '%');
+                            $('#progress-percentage').text(percent + '%');
+                        }
+                        
+                        if (data.speed) {
+                            $('#progress-speed').text(data.speed);
+                        }
+                        
+                        if (data.eta) {
+                            $('#progress-time').text(data.eta);
+                        }
                         
                         if (data.status === 'completed') {
                             // Download concluído
-                            window.location.href = data.download_url;
+                            $('#download-text').text('Download completo!');
+                            $('#download-spinner').addClass('hidden');
+                            
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Download completo!',
+                                text: 'Seu download começará automaticamente',
+                                confirmButtonColor: '#EF4444',
+                                timer: 2000,
+                                timerProgressBar: true
+                            }).then(() => {
+                                window.location.href = data.download_url;
+                            });
                         } else if (data.status === 'error') {
                             // Erro no download
-                            alert('Erro no download: ' + data.error);
-                            $('#progress-container').hide();
-                            $('#download-button').prop('disabled', false).text('Baixar Vídeo');
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro no download',
+                                text: data.error || 'Ocorreu um erro durante o download',
+                                confirmButtonColor: '#EF4444'
+                            });
+                            
+                            $('#progress-container').fadeOut(300);
+                            resetDownloadButton();
                         } else {
                             // Continuar verificando o progresso
                             setTimeout(function() {
@@ -163,11 +428,33 @@
                         }
                     },
                     error: function() {
-                        $('#progress-container').hide();
-                        $('#download-button').prop('disabled', false).text('Baixar Vídeo');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Erro',
+                            text: 'Não foi possível verificar o progresso do download',
+                            confirmButtonColor: '#EF4444'
+                        });
+                        
+                        $('#progress-container').fadeOut(300);
+                        resetDownloadButton();
                     }
                 });
             }
+            
+            function resetDownloadButton() {
+                $('#download-button').prop('disabled', false);
+                $('#download-text').text('Baixar Vídeo');
+                $('#download-spinner').addClass('hidden');
+            }
+            
+            // Exemplo de URL para facilitar testes
+            $('#video-url').on('focus', function() {
+                if (!$(this).val()) {
+                    $(this).attr('placeholder', 'Exemplo: https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+                }
+            }).on('blur', function() {
+                $(this).attr('placeholder', 'Cole o link do YouTube aqui...');
+            });
         });
     </script>
 </body>
